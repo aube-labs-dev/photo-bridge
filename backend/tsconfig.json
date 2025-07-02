@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "module": "commonjs",
+    "declaration": true,
+    "removeComments": true,
+    "emitDecoratorMetadata": true,  // <-- 이 줄을 추가 또는 확인
+    "experimentalDecorators": true, // <-- 이 줄을 추가 또는 확인
+    "allowSyntheticDefaultImports": true,
+    "target": "ES2021", // 또는 "ES2017", "ES2020" 등 NestJS 버전에 맞는 적절한 타겟
+    "sourceMap": true,
+    "outDir": "./dist",
+    "baseUrl": "./",
+    "incremental": true,
+    "skipLibCheck": true,
+    "strictNullChecks": false,
+    "noImplicitAny": false,
+    "strictBindCallApply": false,
+    "forceConsistentCasingInFileNames": false,
+    "noFallthroughCasesInSwitch": false
+  },
+  "exclude": ["node_modules", "dist"]
+}
