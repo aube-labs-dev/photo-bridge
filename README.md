@@ -13,12 +13,12 @@ git init
 # backend 디렉토리에 Nest.js 프로젝트를 생성하고 Git 저장소를 초기화
 # 또는 기존 Nest.js 프로젝트를 해당 위치에 이동하고 .git 파일만 남겨두기
 # 이 예시에서는 새로 생성한다고 가정
-git submodule add <your_backend_git_repo_url> backend
+git submodule add https://github.com/aube-labs-dev/photo-bridge-backend.git backend
 # 예시: git submodule add https://github.com/your-username/your-nest-backend.git backend
 ```
 * 프런트엔드 (Next.js):
 ```Bash
-git submodule add <your_frontend_git_repo_url> frontend
+git submodule add https://github.com/aube-labs-dev/photo-bridge-frontend.git frontend
 # 예시: git submodule add https://github.com/your-username/your-next-frontend.git frontend
 ```
 
