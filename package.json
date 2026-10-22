@@ -23,6 +23,7 @@
   "homepage": "https://github.com/aube-labs-dev/photo-bridge#readme",
   "devDependencies": {
     "@playwright/test": "^1.64.1",
-    "http-proxy": "^1.18.1"
+    "http-proxy": "^1.18.1",
+    "wrangler": "^4.151.3"
   }
 }

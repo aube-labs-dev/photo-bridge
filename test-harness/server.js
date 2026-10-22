@@ -1,15 +1,15 @@
-// 테스트용 통합 서버: frontend/out 정적 서빙 + /socket.io/ → backend(3000) 프록시
-// 운영 nginx 역할을 로컬에서 대신한다.
+// 테스트용 통합 서버: frontend/out 정적 서빙 + /ws,/turn-credentials,/health → Worker(wrangler dev, 8787) 프록시
+// 운영 Cloudflare(Pages + Worker) 역할을 로컬에서 대신한다.
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const httpProxy = require('http-proxy');
 
 const STATIC_DIR = path.join(__dirname, '..', 'frontend', 'out');
-const BACKEND = 'http://localhost:3000';
+const WORKER = process.env.WORKER_URL || 'http://localhost:8787';
 const PORT = process.env.HARNESS_PORT ? Number(process.env.HARNESS_PORT) : 8099;
 
-const proxy = httpProxy.createProxyServer({ target: BACKEND, ws: true });
+const proxy = httpProxy.createProxyServer({ target: WORKER, ws: true });
 proxy.on('error', (err) => console.error('[proxy] error', err.message));
 
 const MIME = {
@@ -24,12 +24,19 @@ const MIME = {
   '.txt': 'text/plain',
 };
 
+function isWorkerPath(url) {
+  return (
+    url.startsWith('/ws') ||
+    url.startsWith('/turn-credentials') ||
+    url.startsWith('/health')
+  );
+}
+
 function serveStatic(req, res) {
   let urlPath = decodeURIComponent(req.url.split('?')[0]);
   if (urlPath === '/') urlPath = '/index.html';
   let filePath = path.join(STATIC_DIR, urlPath);
 
-  // 디렉토리면 index.html, 확장자 없으면 .html 시도 (next export)
   if (!path.extname(filePath)) {
     if (fs.existsSync(filePath + '.html')) filePath = filePath + '.html';
     else if (fs.existsSync(path.join(filePath, 'index.html')))
@@ -38,7 +45,6 @@ function serveStatic(req, res) {
 
   fs.readFile(filePath, (err, data) => {
     if (err) {
-      // SPA fallback
       fs.readFile(path.join(STATIC_DIR, 'index.html'), (e2, idx) => {
         if (e2) {
           res.writeHead(404);
@@ -57,20 +63,22 @@ function serveStatic(req, res) {
 }
 
 const server = http.createServer((req, res) => {
-  if (req.url.startsWith('/socket.io/') || req.url.startsWith('/api/')) {
+  if (isWorkerPath(req.url)) {
     proxy.web(req, res);
   } else {
     serveStatic(req, res);
   }
 });
 
-// WebSocket 업그레이드 프록시
+// WebSocket 업그레이드 프록시 (/ws → Worker)
 server.on('upgrade', (req, socket, head) => {
-  if (req.url.startsWith('/socket.io/')) {
+  if (req.url.startsWith('/ws')) {
     proxy.ws(req, socket, head);
   }
 });
 
 server.listen(PORT, () => {
-  console.log(`[harness] listening on http://localhost:${PORT} (static=${STATIC_DIR}, backend=${BACKEND})`);
+  console.log(
+    `[harness] listening on http://localhost:${PORT} (static=${STATIC_DIR}, worker=${WORKER})`,
+  );
 });
