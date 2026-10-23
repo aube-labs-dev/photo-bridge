@@ -12,6 +12,7 @@ const MAX_CLIENTS = 2;
 
 interface ClientMeta {
   id: string; // 서버 부여 clientId
+  ck?: string; // 탭별 재접속 키 (같은 탭 재접속 시 교체용)
 }
 
 export class RoomDurableObject {
@@ -33,8 +34,33 @@ export class RoomDurableObject {
     const client = pair[0];
     const server = pair[1];
 
-    // 현재 방 인원 확인 (hibernation: getWebSockets로 복원)
-    const existing = this.state.getWebSockets();
+    // 재접속 키(ck): 같은 탭이 재접속하면 이전 소켓을 교체한다.
+    const ck = new URL(request.url).searchParams.get('ck') || '';
+
+    // 입장 전 좀비 소켓 정리:
+    //  1) 같은 ck의 기존 소켓(= 같은 탭의 이전 연결)은 무조건 닫는다
+    //     (iOS Safari 백그라운드 복귀 시 freeze된 소켓이 OPEN으로 남아도 교체됨).
+    //  2) readyState가 OPEN이 아닌 죽은 소켓도 닫는다.
+    for (const ws of this.state.getWebSockets()) {
+      const m = ws.deserializeAttachment() as ClientMeta | null;
+      const isStale = ws.readyState !== WebSocket.READY_STATE_OPEN;
+      const sameTab = !!ck && m?.ck === ck;
+      if (isStale || sameTab) {
+        try {
+          ws.close(4002, sameTab ? 'replaced' : 'stale');
+        } catch {
+          /* noop */
+        }
+      }
+    }
+
+    // 현재 방 인원 확인 — 살아있고 교체 대상이 아닌 소켓만 카운트
+    const existing = this.state.getWebSockets().filter((ws) => {
+      if (ws.readyState !== WebSocket.READY_STATE_OPEN) return false;
+      const m = ws.deserializeAttachment() as ClientMeta | null;
+      if (ck && m?.ck === ck) return false; // 방금 교체한 같은 탭
+      return true;
+    });
     if (existing.length >= MAX_CLIENTS) {
       server.accept();
       server.send(JSON.stringify({ type: 'room_full' }));
@@ -43,9 +69,9 @@ export class RoomDurableObject {
     }
 
     const clientId = crypto.randomUUID();
-    // hibernation 대응: 메타를 소켓에 attach
+    // hibernation 대응: 메타를 소켓에 attach (ck 포함)
     this.state.acceptWebSocket(server);
-    server.serializeAttachment({ id: clientId } as ClientMeta);
+    server.serializeAttachment({ id: clientId, ck } as ClientMeta);
 
     // 입장 통지 + Perfect Negotiation 역할 지정
     const others = existing;
@@ -118,7 +144,10 @@ export class RoomDurableObject {
   }
 
   // Hibernation: 연결 종료 → 상대에게 peer_left
-  async webSocketClose(ws: WebSocket) {
+  // code 4002(stale/replaced)는 서버가 좀비/중복 소켓을 정리한 것이므로
+  // 상대에게 'peer_left'를 보내지 않는다(불필요한 '나갔어요' 깜빡임 방지).
+  async webSocketClose(ws: WebSocket, code?: number) {
+    if (code === 4002) return;
     const selfMeta = ws.deserializeAttachment() as ClientMeta;
     for (const other of this.state.getWebSockets()) {
       if (other === ws) continue;
