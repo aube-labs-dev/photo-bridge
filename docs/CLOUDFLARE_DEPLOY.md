@@ -3,9 +3,12 @@
 완전 무료(사실상 $0) 운영. 프론트=Cloudflare Pages, 시그널링=Workers+Durable Objects, TURN=Cloudflare Realtime TURN(선택).
 
 ## 현재 배포 주소
+- 서비스(커스텀 도메인): https://photo.playwiki.org
 - 프론트(Pages): https://photo-bridge-4a6.pages.dev
 - 시그널링(Worker): https://photo-bridge-signaling.aube-labs.workers.dev
 - 계정: Aube.labs@gmail.com (account id: cfa6fb769d97b4ca81c9846572857e9c)
+- zone: playwiki.org (id: 834e6c39c7800ff54df2559504e8c8ab), 네임서버 Cloudflare(amanda/corey)
+- TURN: ✅ 활성 (Realtime TURN 키 주입 완료)
 
 ## 사전 준비
 - Cloudflare 계정 + API 토큰(Workers/Pages 편집 권한)
