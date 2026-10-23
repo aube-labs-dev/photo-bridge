@@ -35,23 +35,26 @@ test('실제 PNG 사진 P2P 전송: 바이트+PNG시그니처 검증', async ({
   await expect(pageA.locator('text=연결됨')).toBeVisible({ timeout: 25_000 });
   await expect(pageB.locator('text=연결됨')).toBeVisible({ timeout: 25_000 });
 
-  const downloadPromise = pageB.waitForEvent('download', { timeout: 25_000 });
-
   // 실제 PNG 파일을 input에 주입 (디스크 경로)
   await pageA.setInputFiles('input[type="file"]', REAL_PNG);
 
-  const download = await downloadPromise;
-  // 수신 파일명 확인
-  expect(download.suggestedFilename()).toBe('pb_real.png');
-
-  const stream = await download.createReadStream();
-  const chunks: Buffer[] = [];
-  await new Promise<void>((resolve, reject) => {
-    stream.on('data', (c) => chunks.push(c as Buffer));
-    stream.on('end', () => resolve());
-    stream.on('error', reject);
+  // 수신측 갤러리에 1장 뜰 때까지 대기 → 썸네일 blob URL에서 바이트 추출
+  await expect(pageB.locator('text=받은 사진 1장')).toBeVisible({
+    timeout: 25_000,
   });
-  const received = Buffer.concat(chunks);
+  const imgSrc = await pageB.locator('img[alt="pb_real.png"]').getAttribute('src');
+  expect(imgSrc).toBeTruthy();
+
+  // 브라우저 컨텍스트에서 blob을 fetch해 base64로 반환
+  const b64 = await pageB.evaluate(async (src) => {
+    const res = await fetch(src as string);
+    const buf = await res.arrayBuffer();
+    let binary = '';
+    const bytes = new Uint8Array(buf);
+    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+    return btoa(binary);
+  }, imgSrc);
+  const received = Buffer.from(b64, 'base64');
   const receivedHash = crypto
     .createHash('sha256')
     .update(received)

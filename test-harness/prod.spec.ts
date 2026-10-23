@@ -30,7 +30,6 @@ test('운영 배포본 P2P 전송 (Cloudflare Pages+Worker DO)', async ({
 
   const original = crypto.randomBytes(150 * 1024);
   const origHash = crypto.createHash('sha256').update(original).digest('hex');
-  const dl = pageB.waitForEvent('download', { timeout: 25_000 });
 
   await pageA.setInputFiles('input[type="file"]', {
     name: 'prod.png',
@@ -38,15 +37,19 @@ test('운영 배포본 P2P 전송 (Cloudflare Pages+Worker DO)', async ({
     buffer: original,
   });
 
-  const download = await dl;
-  const stream = await download.createReadStream();
-  const chunks: Buffer[] = [];
-  await new Promise<void>((res, rej) => {
-    stream.on('data', (c) => chunks.push(c as Buffer));
-    stream.on('end', () => res());
-    stream.on('error', rej);
+  await expect(pageB.locator('text=받은 사진 1장')).toBeVisible({
+    timeout: 25_000,
   });
-  const received = Buffer.concat(chunks);
+  const imgSrc = await pageB.locator('img[alt="prod.png"]').getAttribute('src');
+  const b64 = await pageB.evaluate(async (src) => {
+    const res = await fetch(src as string);
+    const buf = await res.arrayBuffer();
+    let binary = '';
+    const bytes = new Uint8Array(buf);
+    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+    return btoa(binary);
+  }, imgSrc);
+  const received = Buffer.from(b64, 'base64');
   const recvHash = crypto.createHash('sha256').update(received).digest('hex');
 
   expect(received.length).toBe(original.length);
