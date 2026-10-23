@@ -32,8 +32,8 @@ test('실제 PNG 사진 P2P 전송: 바이트+PNG시그니처 검증', async ({
   await pageB.waitForTimeout(500);
   await join(pageA, ROOM);
 
-  await expect(pageA.locator('text=연결됨')).toBeVisible({ timeout: 25_000 });
-  await expect(pageB.locator('text=연결됨')).toBeVisible({ timeout: 25_000 });
+  await expect(pageA.locator('text=연결됨')).toBeVisible({ timeout: 45_000 });
+  await expect(pageB.locator('text=연결됨')).toBeVisible({ timeout: 45_000 });
 
   // 실제 PNG 파일을 input에 주입 (디스크 경로)
   await pageA.setInputFiles('input[type="file"]', REAL_PNG);

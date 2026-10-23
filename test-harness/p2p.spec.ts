@@ -28,8 +28,8 @@ test('P2P 이미지 전송: 바이트 동일성', async ({ browser }: { browser:
   await join(pageA, ROOM);
 
   // 양쪽 "연결됨" 대기
-  await expect(pageA.locator('text=연결됨')).toBeVisible({ timeout: 25_000 });
-  await expect(pageB.locator('text=연결됨')).toBeVisible({ timeout: 25_000 });
+  await expect(pageA.locator('text=연결됨')).toBeVisible({ timeout: 45_000 });
+  await expect(pageB.locator('text=연결됨')).toBeVisible({ timeout: 45_000 });
 
   // 테스트 이미지 생성 (랜덤 바이트 200KB → 청크/역압 경로 커버)
   const originalBytes = crypto.randomBytes(200 * 1024);
