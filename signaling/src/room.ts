@@ -6,9 +6,27 @@ export interface Env {
   ROOM: DurableObjectNamespace;
   TURN_TOKEN_ID?: string;
   TURN_API_TOKEN?: string;
+  // 익명 사용량 집계(선택). NODE 원칙: 이벤트 종류별 총 횟수만 기록.
+  USAGE?: {
+    writeDataPoint: (event: {
+      blobs?: string[];
+      doubles?: number[];
+      indexes?: string[];
+    }) => void;
+  };
 }
 
 const MAX_CLIENTS = 2;
+
+// 익명 이벤트 1건 기록. 방번호/IP/기기/사진 등 식별정보는 절대 넣지 않는다.
+// blobs=[이벤트명]만 기록 → 나중에 종류별 COUNT만 집계 가능.
+function track(env: Env, event: string): void {
+  try {
+    env.USAGE?.writeDataPoint({ blobs: [event], doubles: [1], indexes: [event] });
+  } catch {
+    /* 집계 실패는 서비스에 영향 없음 */
+  }
+}
 
 interface ClientMeta {
   id: string; // 서버 부여 clientId
@@ -62,6 +80,7 @@ export class RoomDurableObject {
       return true;
     });
     if (existing.length >= MAX_CLIENTS) {
+      track(this.env, 'room_full');
       server.accept();
       server.send(JSON.stringify({ type: 'room_full' }));
       server.close(4001, 'room_full');
@@ -84,6 +103,7 @@ export class RoomDurableObject {
     );
 
     if (others.length === 1) {
+      track(this.env, 'paired'); // 2명 연결 = 실제 세션 성립(핵심 지표)
       const peer = others[0];
       const peerMeta = peer.deserializeAttachment() as ClientMeta;
       // 신규(server) = impolite → offer 시작
@@ -102,6 +122,9 @@ export class RoomDurableObject {
           polite: true,
         }),
       );
+    } else if (others.length === 0 && !ck) {
+      // 첫 입장(새 ck 없음 = 최초 생성). ck 재접속 복귀는 중복 집계하지 않음.
+      track(this.env, 'room_created');
     }
 
     return new Response(null, { status: 101, webSocket: client });
