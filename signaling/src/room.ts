@@ -59,10 +59,12 @@ export class RoomDurableObject {
     //  1) 같은 ck의 기존 소켓(= 같은 탭의 이전 연결)은 무조건 닫는다
     //     (iOS Safari 백그라운드 복귀 시 freeze된 소켓이 OPEN으로 남아도 교체됨).
     //  2) readyState가 OPEN이 아닌 죽은 소켓도 닫는다.
+    let wasReconnect = false; // 같은 ck 재접속(복귀)인지 — room_created 중복 집계 방지
     for (const ws of this.state.getWebSockets()) {
       const m = ws.deserializeAttachment() as ClientMeta | null;
       const isStale = ws.readyState !== WebSocket.READY_STATE_OPEN;
       const sameTab = !!ck && m?.ck === ck;
+      if (sameTab) wasReconnect = true;
       if (isStale || sameTab) {
         try {
           ws.close(4002, sameTab ? 'replaced' : 'stale');
@@ -122,8 +124,8 @@ export class RoomDurableObject {
           polite: true,
         }),
       );
-    } else if (others.length === 0 && !ck) {
-      // 첫 입장(새 ck 없음 = 최초 생성). ck 재접속 복귀는 중복 집계하지 않음.
+    } else if (others.length === 0 && !wasReconnect) {
+      // 방에 혼자 입장 & 같은 ck 재접속(복귀)이 아님 = 새 방 최초 생성.
       track(this.env, 'room_created');
     }
 
